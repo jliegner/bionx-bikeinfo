@@ -99,6 +99,8 @@ function XltMsgToStr ( Id : DWORD; Len : byte; CANData : PCANData ) : string;
 begin
   Len := Len and $0F;
   case Len of
+    0 :
+      Result := Format ( 'Id=%0.2x, Len=%0.2d, Data=', [Id, Len] );
     2 :
       Result := Format ( 'Id=%0.2x, Len=%0.2d, Data=%0.2x %0.2x', [Id, Len, CANData^[0], CANData^[1]] );
     4 :
@@ -315,6 +317,7 @@ var
   Id : DWORD;
   Len : byte;
   CANData : TCANData;
+  CANData2 : TCANData;
 begin
   Result := false;
   TimeoutTime := Now + Timeout * MilliSecond;
@@ -323,10 +326,17 @@ begin
   begin
     if ReadCANMsg ( Id, Len, @CANData ) then
     begin
-      Result := ( ((Len and $0F) = 4) and (CANData[1] = Reg) and ( Id = ReplyId ) );
+      Result := ( ((Len and $0F) = 4) and (CANData[1] = Reg) and ( (Id = ReplyId) or (Id = $111)) );
       if Result then
         Value := CANData[3];
-    end
+
+      // jl reply search from console to bib
+      if (((Len and $0F) = 2) and (CANData[1] = $9c) and ( Id = $058 ) ) then
+      begin
+        InitCANData ( @CANData2, $9c, $69 );
+        SendCANMsg ( $008, 4, @CANData2);
+      end
+     end
     else
       Sleep ( 1 );
   end;

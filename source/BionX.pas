@@ -62,8 +62,10 @@ dialogs, controls, // used by untested only
 type
   { TBionXComponent }
   TBionXComponent = class ( TObject )
-  private
+  public
+    bRc3     : boolean;
     FCANId           : byte;
+  private
     FCANIntf         : PCANInterface;
 
     // cache soft- and hardware versions
@@ -6982,13 +6984,18 @@ var
   Retries : integer;
 begin
   Result := false;
-  Retries := 3;
+  Retries := 5;
   repeat
     try
       dec ( Retries );
-      Console.StatusSlave := true;
-      sleep ( 100 );
+
       Result := Console.StatusSlave;
+
+      // jl
+      // Console.StatusSlave := true;
+      sleep ( 100 );
+      // Result := Console.StatusSlave;
+
     except
       // the Console.StatusSlave get and set method may raise an exception,
       // but do not report any error here. An error will be shown at the

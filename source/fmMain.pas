@@ -30,18 +30,24 @@ uses
   CANInterface,
   CANAdapter,
   XLBCANAdapter,
-  TinyCANAdapter;
+  SLCANAdapter,
+  TinyCANAdapter, Types;
 
 
 { TfrmBionXMain }
 type
   TfrmBionXMain = class(TForm)
     Bevel6: TBevel;
+    Bevel7: TBevel;
     BitBtn1: TBitBtn;
     btnAbout: TBitBtn;
+    btnApplyDrive: TBitBtn;
     btnApplySensor: TBitBtn;
     btnMotorLock: TBitBtn;
+    btnDriveLock: TBitBtn;
     btnMotorUnlock: TBitBtn;
+    btnDriveUnlock: TBitBtn;
+    btnReadDrive: TBitBtn;
     btnReadSensor: TBitBtn;
     Button2: TButton;
     btnBatteryUnlock: TBitBtn;
@@ -217,6 +223,9 @@ type
     gbMotorPreference: TGroupBox;
     gbBatteryCellMon: TGroupBox;
     gbBatteryCharger: TGroupBox;
+    GroupBox1: TGroupBox;
+    GroupBox2: TGroupBox;
+    GroupBox3: TGroupBox;
     Label1: TLabel;
     Label11: TLabel;
     Label113: TLabel;
@@ -278,9 +287,11 @@ type
     Label181: TLabel;
     Label182: TLabel;
     Label183: TLabel;
+    Label184: TLabel;
     Label185: TLabel;
     Label186: TLabel;
     Label187: TLabel;
+    Label188: TLabel;
     Label189: TLabel;
     Label190: TLabel;
     Label191: TLabel;
@@ -352,6 +363,9 @@ type
     Label257: TLabel;
     Label258: TLabel;
     Label26: TLabel;
+    Label267: TLabel;
+    Label268: TLabel;
+    Label269: TLabel;
     Label27: TLabel;
     Label279: TLabel;
     Label28: TLabel;
@@ -434,6 +448,11 @@ type
     Label41: TLabel;
     Label42: TLabel;
     Label5: TLabel;
+    Label55: TLabel;
+    Label56: TLabel;
+    Label57: TLabel;
+    Label58: TLabel;
+    Label59: TLabel;
     Label6: TLabel;
     Label61: TLabel;
     Label62: TLabel;
@@ -442,10 +461,16 @@ type
     Label7: TLabel;
     Label8: TLabel;
     mmDebug: TMemo;
+    pnlDriveButtons: TPanel;
     pnlSensorButtons: TPanel;
     scbBattery: TScrollBox;
     scbMotor: TScrollBox;
     scbSensor: TScrollBox;
+    scbDrive: TScrollBox;
+    SpinEdit1: TSpinEdit;
+    SpinEdit2: TSpinEdit;
+    SpinEdit3: TSpinEdit;
+    // tsDrive: TTabSheet;
     tsSensor: TTabSheet;
     tsTuning: TTabSheet;
     tsTests: TTabSheet;
@@ -782,6 +807,11 @@ type
     procedure Button1Click ( Sender: TObject ) ;
     procedure Button4Click ( Sender: TObject ) ;
     procedure FormHide ( Sender: TObject ) ;
+    procedure gbMotorTorqueClick(Sender: TObject);
+    procedure Label55Click(Sender: TObject);
+    procedure pcMainChange(Sender: TObject);
+    procedure tsBatteryContextPopup(Sender: TObject; MousePos: TPoint;
+      var Handled: Boolean);
   private
     { private declarations }
     FBikeInfoIni     : TBikeInfoIni;
@@ -792,7 +822,8 @@ type
     FOptionExpert    : boolean;
     FOptionKeepAlive : boolean;
     FOptionCANLog    : boolean;
-
+    FOptionRC3       : boolean;
+    Timer1           : TTimer;
     procedure CaptureMessage ( const s : string );
 
     procedure HandleException ( Sender : TObject; E : Exception);
@@ -831,7 +862,7 @@ type
     procedure ReadSensor;
     procedure WriteSensor;
     procedure EnableSensorControls ( Enable : boolean );
-
+    procedure Timer1Timer(Sender: TObject);
   protected
   public
     { public declarations }
@@ -1034,13 +1065,23 @@ end;
 
 {------------------------------------------------------------}
 
+procedure TfrmBionXMain.Timer1Timer(Sender: TObject);
+var
+  CANData : TCANData;
+begin
+  FBike.CANIntf.SendCANMsg ( $05640100, 0, @CANData );
+end;
+
 procedure TfrmBionXMain.FormCreate ( Sender: TObject ) ;
 begin
   // I do prefer the extension .ini for my config files
   ConfigExtension := '.ini';
 
+{$IFDEF MSWINDOWS}
   FBikeInfoIni := TBikeInfoIni.Create ( GetAppConfigFile(true) );
-
+{$ELSE}
+  FBikeInfoIni := TBikeInfoIni.Create ( GetAppConfigFile(false) );
+{$ENDIF}
   btnAbout.Anchors := [akLeft, akTop];
   btnExit.Anchors := [akLeft, akTop];
   btnSaveToFile.Anchors := [akLeft, akTop];
@@ -1063,6 +1104,7 @@ begin
   FOptionKeepAlive := FindCmdLineSwitch ( 'k', true );
   FOptionCANLog := FindCmdLineSwitch ( 'l', true ) or
                    FOptionDebug;
+  FOptionRC3    := FindCmdLineSwitch( 'g', true);
 
   Caption := Format ( Caption, [Version div 100, Version mod 100] );
   if FOptionKeepAlive then
@@ -1076,11 +1118,14 @@ begin
 
   EnableControls ( false );
 
+  tsTests.TabVisible := false;
+  //tsDrive.TabVisible := false;
+
   // show the test tab on debug mode
   if not FOptionDebug then
   begin
     btnSaveToFile.Visible := false;
-    tsTests.TabVisible := false;
+    //tsTests.TabVisible := false;
     tsCapture.TabVisible := false;
   end;
 
@@ -1106,6 +1151,30 @@ begin
     tsSettings.TabVisible := false;
     tsTuning.TabVisible := false;
     btnInfoConsole.Enabled := false;
+  end;
+
+  Timer1 := Ttimer.Create(Application);
+  Timer1.OnTimer := @Timer1Timer;
+  Timer1.Interval := 100;
+  Timer1.Enabled := false;
+
+  if FOptionRC3 then
+  begin
+    tsBattery.TabVisible := false;
+    tsMotor.TabVisible := false;
+    tsConsole.TabVisible := false;
+    tsSensor.TabVisible := false;
+    tsTuning.TabVisible := false;
+    tsSettings.TabVisible := false;
+
+    btnInfoConsole.Enabled := false;
+    btnInfoMotor.Enabled := false;
+    btnInfoSensor.Enabled := false;
+
+    btnInfoConsole.visible := false;
+    btnInfoMotor.visible := false;
+    btnInfoSensor.visible := false;
+    FOptionNoSlave := true;
   end;
 
   if not FOptionCANLog then
@@ -1157,6 +1226,27 @@ procedure TfrmBionXMain.FormHide ( Sender: TObject ) ;
 begin
   // remember last used adapter
   FBikeInfoIni.Adapter := cbAdapter.Text;
+end;
+
+procedure TfrmBionXMain.gbMotorTorqueClick(Sender: TObject);
+begin
+
+end;
+
+procedure TfrmBionXMain.Label55Click(Sender: TObject);
+begin
+
+end;
+
+procedure TfrmBionXMain.pcMainChange(Sender: TObject);
+begin
+
+end;
+
+procedure TfrmBionXMain.tsBatteryContextPopup(Sender: TObject;
+  MousePos: TPoint; var Handled: Boolean);
+begin
+
 end;
 
 procedure TfrmBionXMain.HandleException ( Sender : TObject; E : Exception);
@@ -1477,6 +1567,9 @@ var
 begin
   FBike.KeepAlive := false;
   try
+    FBike.Battery.bRc3 := FOptionRC3;
+    if FBike.Battery.bRc3 then
+      FBike.Battery.FCANId := $51;
     FBike.Battery.CheckDeviceReady;
 
     // Partinfo
@@ -1500,7 +1593,8 @@ begin
     // Misc settings
     ShowValue ( '' );
 
-    PrintChargerData;
+    if not FOptionRC3 then
+      PrintChargerData;
 
     // Charge info
 
@@ -1814,7 +1908,6 @@ begin
 
     // misc settings
     SetControlValue ( edWheelCircumference, FBike.Console.GeometryCirc, FSaveValues );
-    SetControlValue ( edAutoShutdownDelay, FBike.Battery.AutoShutdownDelay, FSaveValues );
     SetControlValue ( edOdometer, FBike.Console.StatsOdometer, FSaveValues );
 
     // brakes
@@ -1829,6 +1922,9 @@ begin
     SetControlValue ( edRekuperationLevel2, FBike.Console.RekuperationLevel2, FSaveValues );
     SetControlValue ( edRekuperationLevel3, FBike.Console.RekuperationLevel3, FSaveValues );
     SetControlValue ( edRekuperationLevel4, FBike.Console.RekuperationLevel4, FSaveValues );
+
+    // Battery at last
+    SetControlValue ( edAutoShutdownDelay, FBike.Battery.AutoShutdownDelay, FSaveValues );
 
     // accessory
     SetControlValue ( cbAccessoryEnabled, ord(FBike.Battery.AccessoryEnabled), FSaveValues );
@@ -2232,13 +2328,17 @@ begin
     SetControlValue ( cbBatteryCellMonBalancerEnabled, ord(FBike.Battery.CellMonBalancerEnabled), FSaveValues );
 
     // Charger
-    FBike.Battery.UnlockProtection;
-    try
-      SetControlValue ( edBatteryChargerCurrent, FBike.Battery.ChargerCurrent, FSaveValues );
-      SetControlValue ( edBatteryChargerFinalVoltage, FBike.Battery.ChargerFinalVoltage, FSaveValues );
-      SetControlValue ( cbBatteryChargerMode, FBike.Battery.ChargerMode, FSaveValues );
-    finally
-      FBike.Battery.LockProtection;
+    // disabled for rc3
+    if not FOptionRC3 then
+    begin
+      FBike.Battery.UnlockProtection;
+      try
+        SetControlValue ( edBatteryChargerCurrent, FBike.Battery.ChargerCurrent, FSaveValues );
+        SetControlValue ( edBatteryChargerFinalVoltage, FBike.Battery.ChargerFinalVoltage, FSaveValues );
+        SetControlValue ( cbBatteryChargerMode, FBike.Battery.ChargerMode, FSaveValues );
+       finally
+        FBike.Battery.LockProtection;
+      end;
     end;
 
     // Calib
@@ -2890,6 +2990,8 @@ begin
       CANIntf := TCANInterface.Create ( TTinyCANAdapter );
     1 :
       CANIntf := TCANInterface.Create ( TXLBCANAdapter );
+    2 :
+      CANIntf := TCANInterface.Create ( TSLCANAdapter );
     else
       CANIntf := TCANInterface.Create ( cbAdapter.Text );
   end;
@@ -2908,6 +3010,7 @@ begin
     try
       if FBike.Connect ( CANIntf ) then
       begin
+        Timer1.enabled:=false;
         EnableControls ( true );
         if not FOptionNoSlave then
         begin
@@ -2920,12 +3023,12 @@ begin
       end
       else
       begin
-        FreeAndNil ( FBike );
+        // FreeAndNil ( FBike );
       end;
     except
       on E:Exception do
       begin
-        FreeAndNil ( FBike );
+        // FreeAndNil ( FBike );
         raise;
       end;
     end;
@@ -2939,6 +3042,7 @@ end;
 
 procedure TfrmBionXMain.btnDisconnectClick(Sender: TObject);
 begin
+  Timer1.enabled:=false;
   EnableControls ( false );
 
   if assigned ( FBike ) then
@@ -2947,6 +3051,7 @@ end;
 
 procedure TfrmBionXMain.btnShutdownClick ( Sender: TObject ) ;
 begin
+  Timer1.enabled:=false;
   if assigned ( FBike ) then
     FBike.Shutdown;
   btnDisconnectClick(nil);
@@ -3134,7 +3239,7 @@ end;
 procedure TfrmBionXMain.btnReadConsoleClick ( Sender: TObject ) ;
 begin
   try
-    FBike.Console.CheckDeviceReady;
+    // FBike.Console.CheckDeviceReady;
     ReadConsole;
     EnableConsoleControls ( true );
   except
@@ -3159,6 +3264,9 @@ end;
 procedure TfrmBionXMain.btnReadBatteryClick ( Sender: TObject ) ;
 begin
   try
+    FBike.Battery.bRc3 := FOptionRC3;
+    if FBike.Battery.bRc3 then
+      FBike.Battery.FCANId := $51;
     FBike.Battery.CheckDeviceReady;
     ReadBattery;
     EnableBatteryControls ( true );

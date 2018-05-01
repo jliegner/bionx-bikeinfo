@@ -229,6 +229,7 @@ object frmBionXMain: TfrmBionXMain
       Items.Strings = (
         'TinyCAN'
         'XLB Adapter'
+        'SLCAN Adapter'
       )
       Style = csDropDownList
       TabOrder = 5
