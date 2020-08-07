@@ -877,7 +877,7 @@ uses
 {$R *.lfm}
 
 const
-  Version = 90;
+  Version = 91;
 
 { TfrmBionXMain }
 
